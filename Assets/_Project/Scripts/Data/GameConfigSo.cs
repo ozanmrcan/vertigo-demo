@@ -18,5 +18,21 @@ namespace WheelOfFortune.Data
         public WheelConfigSo SilverWheel => _silverWheel;
         public WheelConfigSo GoldenWheel => _goldenWheel;
         public AnimationCurve RewardMultiplierByZone => _rewardMultiplierByZone;
+
+        internal void InitializeForTests(
+            int safeZoneInterval,
+            int superZoneInterval,
+            WheelConfigSo bronzeWheel,
+            WheelConfigSo silverWheel,
+            WheelConfigSo goldenWheel,
+            AnimationCurve rewardMultiplierByZone)
+        {
+            _safeZoneInterval = safeZoneInterval;
+            _superZoneInterval = superZoneInterval;
+            _bronzeWheel = bronzeWheel;
+            _silverWheel = silverWheel;
+            _goldenWheel = goldenWheel;
+            _rewardMultiplierByZone = rewardMultiplierByZone;
+        }
     }
 }
