@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b500730867434a49ad54e1f092d275d, type: 3}
+  m_Name: so_wheel_bronze
+  m_EditorClassIdentifier: 
+  _tier: 0
+  _baseSprite: {fileID: 21300000, guid: aeb6e23eb6221a3439a5c2390d51cb78, type: 3}
+  _indicatorSprite: {fileID: 21300000, guid: 146887e85c80add41baeb6951a36a010, type: 3}
+  _title: BRONZE SPIN
+  _slices:
+  - _reward: {fileID: 11400000, guid: aef6112ab9fd32044a6ae03367d1a774, type: 2}
+    _baseAmount: 100
+    _isBomb: 0
+  - _reward: {fileID: 11400000, guid: 9c88d5111f6696c44a2c7be3c5078800, type: 2}
+    _baseAmount: 20
+    _isBomb: 0
+  - _reward: {fileID: 11400000, guid: 4bdac0dcc462add43b4233250fbfa8cc, type: 2}
+    _baseAmount: 1
+    _isBomb: 0
+  - _reward: {fileID: 11400000, guid: aef6112ab9fd32044a6ae03367d1a774, type: 2}
+    _baseAmount: 250
+    _isBomb: 0
+  - _reward: {fileID: 11400000, guid: 9c88d5111f6696c44a2c7be3c5078800, type: 2}
+    _baseAmount: 50
+    _isBomb: 0
+  - _reward: {fileID: 11400000, guid: dd017a0aaf3121a4591e4027fc518def, type: 2}
+    _baseAmount: 1
+    _isBomb: 0
+  - _reward: {fileID: 11400000, guid: a96540dc779998c459ac851ca1271669, type: 2}
+    _baseAmount: 1
+    _isBomb: 0
+  - _reward: {fileID: 0}
+    _baseAmount: 0
+    _isBomb: 1
