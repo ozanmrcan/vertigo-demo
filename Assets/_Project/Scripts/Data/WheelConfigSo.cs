@@ -26,6 +26,12 @@ namespace WheelOfFortune.Data
         public string Title => _title;
         public WheelSliceData[] Slices => _slices;
 
+        internal void InitializeForTests(WheelTier tier, WheelSliceData[] slices)
+        {
+            _tier = tier;
+            _slices = slices;
+        }
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
