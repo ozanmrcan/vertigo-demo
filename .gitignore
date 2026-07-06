@@ -105,3 +105,11 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Vertigo demo: raw UI asset source, not shipped (curated copies live under Assets/_Project/Art)
+/demo_content/
+/demo_content.zip
+
+# Internal planning/prep docs, not part of the submission
+/PROJECT_PLAN.md
+/InterviewNotes/
