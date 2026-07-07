@@ -16,6 +16,13 @@ namespace WheelOfFortune.UI
 
         public bool IsSpinning { get; private set; }
 
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            _rotator = GetComponent<RectTransform>();
+        }
+#endif
+
         public void SpinTo(int sliceIndex, Action onComplete)
         {
             // Landing angle is sliceIndex * DegreesPerSlice (mod 360): slice 0 sits under the
