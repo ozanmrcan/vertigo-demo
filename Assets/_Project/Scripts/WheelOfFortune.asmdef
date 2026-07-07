@@ -1,7 +1,9 @@
 {
     "name": "WheelOfFortune",
     "rootNamespace": "WheelOfFortune",
-    "references": [],
+    "references": [
+        "Unity.TextMeshPro"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
