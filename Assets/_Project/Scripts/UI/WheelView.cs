@@ -31,6 +31,7 @@ namespace WheelOfFortune.UI
         [SerializeField] private Image _baseImage;
         [SerializeField] private Image _indicatorImage;
         [SerializeField] private TMP_Text _titleText;
+        [SerializeField] private TMP_Text _multiplierText;
         [SerializeField] private Sprite _bombIconSprite;
         [SerializeField] private SliceRefs[] _slices = new SliceRefs[SliceCount];
 
@@ -40,6 +41,7 @@ namespace WheelOfFortune.UI
             _baseImage = UiBind.Find<Image>(this, "ui_image_wheel_base_value");
             _indicatorImage = UiBind.Find<Image>(this, "ui_image_wheel_indicator_value");
             _titleText = UiBind.Find<TMP_Text>(this, "ui_text_wheel_title_value");
+            _multiplierText = UiBind.Find<TMP_Text>(this, "ui_text_wheel_multiplier_value");
 
             if (_slices == null || _slices.Length != SliceCount)
             {
@@ -66,11 +68,12 @@ namespace WheelOfFortune.UI
         }
 #endif
 
-        public void Bind(WheelConfigSo config)
+        public void Bind(WheelConfigSo config, float rewardMultiplier)
         {
             _baseImage.sprite = config.BaseSprite;
             _indicatorImage.sprite = config.IndicatorSprite;
             _titleText.text = config.Title;
+            _multiplierText.text = $"x{rewardMultiplier:0.00}";
 
             var sliceData = config.Slices;
             for (var i = 0; i < _slices.Length; i++)

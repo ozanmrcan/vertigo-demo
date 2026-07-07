@@ -1,0 +1,133 @@
+using UnityEngine;
+using UnityEngine.UI;
+using WheelOfFortune.Core;
+using WheelOfFortune.Data;
+using WheelOfFortune.UI;
+
+namespace WheelOfFortune.Game
+{
+    public class GameManager : MonoBehaviour
+    {
+        [SerializeField] private GameConfigSo _config;
+        [SerializeField] private WheelView _wheelView;
+        [SerializeField] private WheelSpinAnimator _wheelSpinAnimator;
+        [SerializeField] private ZonesView _zonesView;
+        [SerializeField] private RewardsView _rewardsView;
+        [SerializeField] private BombPopupView _bombPopupView;
+        [SerializeField] private FinishPopupView _finishPopupView;
+        [SerializeField] private Button _spinButton;
+        [SerializeField] private Button _leaveButton;
+
+        private GameSession _session;
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            _wheelView = UiBind.Find<WheelView>(this, "ui_panel_wheel");
+            _wheelSpinAnimator = UiBind.Find<WheelSpinAnimator>(this, "ui_transform_wheel_rotator");
+            _zonesView = UiBind.Find<ZonesView>(this, "ui_panel_zones");
+            _rewardsView = UiBind.Find<RewardsView>(this, "ui_panel_rewards");
+            _bombPopupView = UiBind.Find<BombPopupView>(this, "ui_panel_popup_bomb");
+            _finishPopupView = UiBind.Find<FinishPopupView>(this, "ui_panel_popup_finish");
+            _spinButton = UiBind.Find<Button>(this, "ui_button_spin");
+            _leaveButton = UiBind.Find<Button>(this, "ui_button_leave");
+        }
+#endif
+
+        private void Awake()
+        {
+            _session = new GameSession(_config, new System.Random());
+
+            _bombPopupView.Hide();
+            _finishPopupView.Hide();
+            RefreshWheelAndZone();
+            RefreshRewards();
+            UpdateButtonInteractable();
+        }
+
+        private void OnEnable()
+        {
+            _spinButton.onClick.AddListener(HandleSpinClicked);
+            _leaveButton.onClick.AddListener(HandleLeaveClicked);
+            _bombPopupView.GiveUpClicked += HandleRestartRequested;
+            _finishPopupView.RestartClicked += HandleRestartRequested;
+            _session.RewardsChanged += HandleRewardsChanged;
+            _session.ZoneChanged += HandleZoneChanged;
+            _session.BombHit += HandleBombHit;
+            _session.SessionFinished += HandleSessionFinished;
+        }
+
+        private void OnDisable()
+        {
+            _spinButton.onClick.RemoveListener(HandleSpinClicked);
+            _leaveButton.onClick.RemoveListener(HandleLeaveClicked);
+            _bombPopupView.GiveUpClicked -= HandleRestartRequested;
+            _finishPopupView.RestartClicked -= HandleRestartRequested;
+            _session.RewardsChanged -= HandleRewardsChanged;
+            _session.ZoneChanged -= HandleZoneChanged;
+            _session.BombHit -= HandleBombHit;
+            _session.SessionFinished -= HandleSessionFinished;
+        }
+
+        private void HandleSpinClicked()
+        {
+            var result = _session.Spin();
+            UpdateButtonInteractable();
+            _wheelSpinAnimator.SpinTo(result.SliceIndex, () => _session.CompleteSpin());
+        }
+
+        private void HandleLeaveClicked()
+        {
+            _session.LeaveWithRewards();
+        }
+
+        private void HandleRewardsChanged()
+        {
+            RefreshRewards();
+        }
+
+        private void HandleZoneChanged()
+        {
+            RefreshWheelAndZone();
+            UpdateButtonInteractable();
+        }
+
+        private void HandleBombHit()
+        {
+            UpdateButtonInteractable();
+            _bombPopupView.Show();
+        }
+
+        private void HandleSessionFinished()
+        {
+            UpdateButtonInteractable();
+            _finishPopupView.Show(_session.Rewards);
+        }
+
+        private void HandleRestartRequested()
+        {
+            _bombPopupView.Hide();
+            _finishPopupView.Hide();
+            _session.Restart();
+        }
+
+        private void RefreshWheelAndZone()
+        {
+            var multiplier = _config.RewardMultiplierByZone.Evaluate(_session.CurrentZone);
+            _wheelView.Bind(_session.CurrentWheel, multiplier);
+            _zonesView.Render(_session.CurrentZone, _config.SafeZoneInterval, _config.SuperZoneInterval);
+        }
+
+        private void RefreshRewards()
+        {
+            _rewardsView.Render(_session.Rewards);
+        }
+
+        private void UpdateButtonInteractable()
+        {
+            var idle = _session.State == SessionState.Idle;
+            _spinButton.interactable = idle;
+            _leaveButton.interactable = idle && _session.CurrentZoneType != ZoneType.Normal;
+        }
+    }
+}
