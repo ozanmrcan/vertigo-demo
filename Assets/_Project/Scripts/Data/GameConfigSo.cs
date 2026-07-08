@@ -11,6 +11,8 @@ namespace WheelOfFortune.Data
         [SerializeField] private WheelConfigSo _silverWheel;
         [SerializeField] private WheelConfigSo _goldenWheel;
         [SerializeField] private AnimationCurve _rewardMultiplierByZone = AnimationCurve.Linear(1, 1, 30, 3);
+        [SerializeField] private RewardDefinitionSo _goldReward;
+        [SerializeField] private int _reviveCost = 25;
 
         public int SafeZoneInterval => _safeZoneInterval;
         public int SuperZoneInterval => _superZoneInterval;
@@ -18,6 +20,8 @@ namespace WheelOfFortune.Data
         public WheelConfigSo SilverWheel => _silverWheel;
         public WheelConfigSo GoldenWheel => _goldenWheel;
         public AnimationCurve RewardMultiplierByZone => _rewardMultiplierByZone;
+        public RewardDefinitionSo GoldReward => _goldReward;
+        public int ReviveCost => _reviveCost;
 
         internal void InitializeForTests(
             int safeZoneInterval,
@@ -25,7 +29,9 @@ namespace WheelOfFortune.Data
             WheelConfigSo bronzeWheel,
             WheelConfigSo silverWheel,
             WheelConfigSo goldenWheel,
-            AnimationCurve rewardMultiplierByZone)
+            AnimationCurve rewardMultiplierByZone,
+            RewardDefinitionSo goldReward = null,
+            int reviveCost = 25)
         {
             _safeZoneInterval = safeZoneInterval;
             _superZoneInterval = superZoneInterval;
@@ -33,6 +39,8 @@ namespace WheelOfFortune.Data
             _silverWheel = silverWheel;
             _goldenWheel = goldenWheel;
             _rewardMultiplierByZone = rewardMultiplierByZone;
+            _goldReward = goldReward;
+            _reviveCost = reviveCost;
         }
     }
 }

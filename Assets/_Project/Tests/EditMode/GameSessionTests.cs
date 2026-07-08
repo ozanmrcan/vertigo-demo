@@ -31,11 +31,13 @@ namespace WheelOfFortune.Tests
             int safeInterval,
             int superInterval,
             WheelConfigSo wheel,
-            float rewardMultiplier = 1f)
+            float rewardMultiplier = 1f,
+            RewardDefinitionSo goldReward = null,
+            int reviveCost = 25)
         {
             var config = ScriptableObject.CreateInstance<GameConfigSo>();
             var curve = AnimationCurve.Constant(0f, 1000f, rewardMultiplier);
-            config.InitializeForTests(safeInterval, superInterval, wheel, wheel, wheel, curve);
+            config.InitializeForTests(safeInterval, superInterval, wheel, wheel, wheel, curve, goldReward, reviveCost);
             return config;
         }
 
@@ -71,16 +73,33 @@ namespace WheelOfFortune.Tests
         }
 
         [Test]
-        public void CompleteSpin_OnBomb_ClearsInventoryAndSetsBombExploded()
+        public void CompleteSpin_OnBomb_SetsBombExploded_ButKeepsRewardsUntilRestart()
         {
-            var wheel = CreateWheel(CreateSlice(null, 0, isBomb: true));
-            var config = CreateConfig(safeInterval: 5, superInterval: 30, wheel);
+            var reward = CreateReward();
+            var wheel = CreateWheel(CreateSlice(reward, 100), CreateSlice(null, 0, isBomb: true));
+            var config = CreateConfig(safeInterval: 1000, superInterval: 10000, wheel);
             var session = new GameSession(config, new Random(1));
 
             session.Spin();
             session.CompleteSpin();
+            var rewardsBeforeBomb = new Dictionary<RewardDefinitionSo, int>(session.Rewards);
+
+            while (session.State != SessionState.BombExploded)
+            {
+                session.Spin();
+                session.CompleteSpin();
+                if (session.State == SessionState.Idle)
+                {
+                    rewardsBeforeBomb = new Dictionary<RewardDefinitionSo, int>(session.Rewards);
+                }
+            }
 
             Assert.AreEqual(SessionState.BombExploded, session.State);
+            Assert.Greater(session.Rewards.Count, 0);
+            CollectionAssert.AreEquivalent(rewardsBeforeBomb, session.Rewards);
+
+            session.Restart();
+
             Assert.AreEqual(0, session.Rewards.Count);
         }
 
@@ -217,6 +236,84 @@ namespace WheelOfFortune.Tests
             }
 
             CollectionAssert.AreEqual(indicesA, indicesB);
+        }
+
+        [Test]
+        public void CompleteSpin_OnGoldReward_AccumulatesPersistentGold_SurvivingABomb()
+        {
+            var gold = CreateReward();
+            var wheel = CreateWheel(CreateSlice(gold, 100), CreateSlice(null, 0, isBomb: true));
+            var config = CreateConfig(safeInterval: 1000, superInterval: 10000, wheel, goldReward: gold);
+            var session = new GameSession(config, new Random(1));
+
+            session.Spin();
+            session.CompleteSpin();
+
+            Assert.AreEqual(100, session.PersistentGold);
+            var goldBeforeBomb = session.PersistentGold;
+
+            while (session.State != SessionState.BombExploded)
+            {
+                session.Spin();
+                session.CompleteSpin();
+                if (session.State == SessionState.Idle)
+                {
+                    goldBeforeBomb = session.PersistentGold;
+                }
+            }
+
+            Assert.AreEqual(SessionState.BombExploded, session.State);
+            Assert.AreEqual(goldBeforeBomb, session.PersistentGold);
+        }
+
+        [Test]
+        public void Revive_WhenAffordable_RestoresIdle_KeepsRewardsAndZone_DeductsGold()
+        {
+            var reward = CreateReward();
+            var wheel = CreateWheel(CreateSlice(reward, 100), CreateSlice(null, 0, isBomb: true));
+            var config = CreateConfig(safeInterval: 1000, superInterval: 10000, wheel, reviveCost: 25);
+            var session = new GameSession(config, new Random(1), startingGold: 100);
+
+            while (session.State != SessionState.BombExploded)
+            {
+                session.Spin();
+                session.CompleteSpin();
+            }
+
+            var zoneBeforeRevive = session.CurrentZone;
+            var rewardsBeforeRevive = new Dictionary<RewardDefinitionSo, int>(session.Rewards);
+            Assert.Greater(rewardsBeforeRevive.Count, 0);
+
+            session.Revive(25);
+
+            Assert.AreEqual(SessionState.Idle, session.State);
+            Assert.AreEqual(zoneBeforeRevive, session.CurrentZone);
+            Assert.AreEqual(75, session.PersistentGold);
+            CollectionAssert.AreEquivalent(rewardsBeforeRevive, session.Rewards);
+        }
+
+        [Test]
+        public void Revive_ThrowsWhenGoldInsufficient()
+        {
+            var wheel = CreateWheel(CreateSlice(null, 0, isBomb: true));
+            var config = CreateConfig(safeInterval: 1000, superInterval: 10000, wheel, reviveCost: 25);
+            var session = new GameSession(config, new Random(1), startingGold: 10);
+
+            session.Spin();
+            session.CompleteSpin();
+
+            Assert.Throws<InvalidOperationException>(() => session.Revive(25));
+            Assert.AreEqual(SessionState.BombExploded, session.State);
+        }
+
+        [Test]
+        public void Revive_ThrowsWhenNotBombExploded()
+        {
+            var wheel = CreateWheel(CreateSlice(CreateReward(), 100));
+            var config = CreateConfig(safeInterval: 5, superInterval: 30, wheel);
+            var session = new GameSession(config, new Random(1), startingGold: 100);
+
+            Assert.Throws<InvalidOperationException>(() => session.Revive(25));
         }
     }
 }

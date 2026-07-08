@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,6 +11,8 @@ namespace WheelOfFortune.UI
     {
         [SerializeField] private Transform _container;
         [SerializeField] private GameObject _itemPrefab;
+
+        public RectTransform Container => (RectTransform)_container;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -38,6 +41,8 @@ namespace WheelOfFortune.UI
 
                 icon.sprite = reward.Key.Icon;
                 amountText.text = reward.Value.ToString();
+
+                item.transform.DOPunchScale(Vector3.one * 0.15f, 0.3f, 6, 0.6f);
             }
         }
     }

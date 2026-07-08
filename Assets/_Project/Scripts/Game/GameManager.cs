@@ -1,3 +1,4 @@
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 using WheelOfFortune.Core;
@@ -8,6 +9,8 @@ namespace WheelOfFortune.Game
 {
     public class GameManager : MonoBehaviour
     {
+        private const string GoldPrefsKey = "PersistentGold";
+
         [SerializeField] private GameConfigSo _config;
         [SerializeField] private WheelView _wheelView;
         [SerializeField] private WheelSpinAnimator _wheelSpinAnimator;
@@ -36,7 +39,8 @@ namespace WheelOfFortune.Game
 
         private void Awake()
         {
-            _session = new GameSession(_config, new System.Random());
+            var startingGold = PlayerPrefs.GetInt(GoldPrefsKey, 0);
+            _session = new GameSession(_config, new System.Random(), startingGold);
 
             _bombPopupView.Hide();
             _finishPopupView.Hide();
@@ -50,11 +54,13 @@ namespace WheelOfFortune.Game
             _spinButton.onClick.AddListener(HandleSpinClicked);
             _leaveButton.onClick.AddListener(HandleLeaveClicked);
             _bombPopupView.GiveUpClicked += HandleRestartRequested;
+            _bombPopupView.ReviveClicked += HandleReviveRequested;
             _finishPopupView.RestartClicked += HandleRestartRequested;
             _session.RewardsChanged += HandleRewardsChanged;
             _session.ZoneChanged += HandleZoneChanged;
             _session.BombHit += HandleBombHit;
             _session.SessionFinished += HandleSessionFinished;
+            _session.Revived += HandleRevived;
         }
 
         private void OnDisable()
@@ -62,18 +68,53 @@ namespace WheelOfFortune.Game
             _spinButton.onClick.RemoveListener(HandleSpinClicked);
             _leaveButton.onClick.RemoveListener(HandleLeaveClicked);
             _bombPopupView.GiveUpClicked -= HandleRestartRequested;
+            _bombPopupView.ReviveClicked -= HandleReviveRequested;
             _finishPopupView.RestartClicked -= HandleRestartRequested;
             _session.RewardsChanged -= HandleRewardsChanged;
             _session.ZoneChanged -= HandleZoneChanged;
             _session.BombHit -= HandleBombHit;
             _session.SessionFinished -= HandleSessionFinished;
+            _session.Revived -= HandleRevived;
         }
 
         private void HandleSpinClicked()
         {
             var result = _session.Spin();
             UpdateButtonInteractable();
-            _wheelSpinAnimator.SpinTo(result.SliceIndex, () => _session.CompleteSpin());
+            _wheelSpinAnimator.SpinTo(result.SliceIndex, () => HandleSpinLanded(result));
+        }
+
+        private void HandleSpinLanded(SpinResult result)
+        {
+            if (result.Slice.IsBomb)
+            {
+                _session.CompleteSpin();
+                return;
+            }
+
+            var icon = _wheelView.GetSliceIcon(result.SliceIndex);
+            PlayRewardFly(icon.sprite, icon.rectTransform, _rewardsView.Container, () => _session.CompleteSpin());
+        }
+
+        private void PlayRewardFly(Sprite sprite, RectTransform from, RectTransform to, System.Action onComplete)
+        {
+            var flyObject = new GameObject("ui_image_reward_fly_value", typeof(RectTransform), typeof(Image));
+            var flyRect = (RectTransform)flyObject.transform;
+            flyRect.SetParent(transform, false);
+            flyRect.sizeDelta = new Vector2(80f, 80f);
+            flyRect.position = from.position;
+
+            var image = flyObject.GetComponent<Image>();
+            image.sprite = sprite;
+            image.raycastTarget = false;
+            image.preserveAspect = true;
+
+            flyRect.DOScale(0.5f, 0.45f).SetEase(Ease.InQuad);
+            flyRect.DOMove(to.position, 0.45f).SetEase(Ease.InQuad).OnComplete(() =>
+            {
+                Destroy(flyObject);
+                onComplete?.Invoke();
+            });
         }
 
         private void HandleLeaveClicked()
@@ -84,6 +125,7 @@ namespace WheelOfFortune.Game
         private void HandleRewardsChanged()
         {
             RefreshRewards();
+            PersistGold();
         }
 
         private void HandleZoneChanged()
@@ -95,7 +137,20 @@ namespace WheelOfFortune.Game
         private void HandleBombHit()
         {
             UpdateButtonInteractable();
-            _bombPopupView.Show();
+            var cost = _config.ReviveCost;
+            _bombPopupView.Show(cost, _session.PersistentGold >= cost);
+        }
+
+        private void HandleReviveRequested()
+        {
+            _bombPopupView.Hide();
+            _session.Revive(_config.ReviveCost);
+        }
+
+        private void HandleRevived()
+        {
+            UpdateButtonInteractable();
+            PersistGold();
         }
 
         private void HandleSessionFinished()
@@ -129,6 +184,12 @@ namespace WheelOfFortune.Game
             var idle = _session.State == SessionState.Idle;
             _spinButton.interactable = idle;
             _leaveButton.interactable = idle && _session.CurrentZoneType != ZoneType.Normal;
+        }
+
+        private void PersistGold()
+        {
+            PlayerPrefs.SetInt(GoldPrefsKey, _session.PersistentGold);
+            PlayerPrefs.Save();
         }
     }
 }

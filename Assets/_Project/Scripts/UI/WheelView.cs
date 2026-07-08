@@ -1,4 +1,5 @@
 using System;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -32,8 +33,11 @@ namespace WheelOfFortune.UI
         [SerializeField] private Image _indicatorImage;
         [SerializeField] private TMP_Text _titleText;
         [SerializeField] private TMP_Text _multiplierText;
+        [SerializeField] private Image _shineImage;
         [SerializeField] private Sprite _bombIconSprite;
         [SerializeField] private SliceRefs[] _slices = new SliceRefs[SliceCount];
+
+        private bool _shineSpinning;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -42,6 +46,7 @@ namespace WheelOfFortune.UI
             _indicatorImage = UiBind.Find<Image>(this, "ui_image_wheel_indicator_value");
             _titleText = UiBind.Find<TMP_Text>(this, "ui_text_wheel_title_value");
             _multiplierText = UiBind.Find<TMP_Text>(this, "ui_text_wheel_multiplier_value");
+            _shineImage = UiBind.Find<Image>(this, "ui_image_wheel_shine_value");
 
             if (_slices == null || _slices.Length != SliceCount)
             {
@@ -73,7 +78,20 @@ namespace WheelOfFortune.UI
             _baseImage.sprite = config.BaseSprite;
             _indicatorImage.sprite = config.IndicatorSprite;
             _titleText.text = config.Title;
+            _titleText.color = TitleColorForTier(config.Tier);
             _multiplierText.text = $"x{rewardMultiplier:0.00}";
+            _multiplierText.color = MultiplierColorForTier(config.Tier);
+
+            var isGolden = config.Tier == WheelTier.Golden;
+            _shineImage.gameObject.SetActive(isGolden);
+            if (isGolden && !_shineSpinning)
+            {
+                _shineSpinning = true;
+                _shineImage.rectTransform
+                    .DORotate(new Vector3(0f, 0f, 360f), 10f, RotateMode.FastBeyond360)
+                    .SetEase(Ease.Linear)
+                    .SetLoops(-1, LoopType.Restart);
+            }
 
             var sliceData = config.Slices;
             for (var i = 0; i < _slices.Length; i++)
@@ -91,6 +109,37 @@ namespace WheelOfFortune.UI
                     view.Icon.sprite = slice.Reward.Icon;
                     view.AmountText.text = slice.BaseAmount.ToString();
                 }
+            }
+        }
+
+        public Image GetSliceIcon(int sliceIndex)
+        {
+            return _slices[sliceIndex].Icon;
+        }
+
+        private static Color TitleColorForTier(WheelTier tier)
+        {
+            switch (tier)
+            {
+                case WheelTier.Silver:
+                    return new Color(0.88f, 0.92f, 1f);
+                case WheelTier.Golden:
+                    return new Color(1f, 0.9f, 0.6f);
+                default:
+                    return new Color(1f, 0.75f, 0.45f);
+            }
+        }
+
+        private static Color MultiplierColorForTier(WheelTier tier)
+        {
+            switch (tier)
+            {
+                case WheelTier.Silver:
+                    return new Color(0.75f, 0.85f, 0.95f);
+                case WheelTier.Golden:
+                    return new Color(1f, 0.75f, 0.25f);
+                default:
+                    return new Color(1f, 0.55f, 0.25f);
             }
         }
     }

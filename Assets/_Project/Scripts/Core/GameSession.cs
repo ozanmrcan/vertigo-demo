@@ -19,10 +19,11 @@ namespace WheelOfFortune.Core
         private readonly RewardInventory _inventory = new RewardInventory();
         private SpinResult? _pendingResult;
 
-        public GameSession(GameConfigSo config, Random random)
+        public GameSession(GameConfigSo config, Random random, int startingGold = 0)
         {
             _config = config;
             _random = random;
+            PersistentGold = startingGold;
             CurrentZone = 1;
             State = SessionState.Idle;
             CurrentZoneType = ZoneRules.GetZoneType(CurrentZone, _config.SafeZoneInterval, _config.SuperZoneInterval);
@@ -33,6 +34,7 @@ namespace WheelOfFortune.Core
         public int CurrentZone { get; private set; }
         public ZoneType CurrentZoneType { get; private set; }
         public WheelConfigSo CurrentWheel { get; private set; }
+        public int PersistentGold { get; private set; }
         public IReadOnlyDictionary<RewardDefinitionSo, int> Rewards => _inventory.Amounts;
 
         public event Action<SpinResult> SpinResolved;
@@ -40,6 +42,7 @@ namespace WheelOfFortune.Core
         public event Action ZoneChanged;
         public event Action BombHit;
         public event Action SessionFinished;
+        public event Action Revived;
 
         public SpinResult Spin()
         {
@@ -78,14 +81,16 @@ namespace WheelOfFortune.Core
 
             if (result.Slice.IsBomb)
             {
-                _inventory.Clear();
                 State = SessionState.BombExploded;
-                RewardsChanged?.Invoke();
                 BombHit?.Invoke();
                 return;
             }
 
             _inventory.Add(result.Slice.Reward, result.ScaledAmount);
+            if (_config.GoldReward != null && result.Slice.Reward == _config.GoldReward)
+            {
+                PersistentGold += result.ScaledAmount;
+            }
             RewardsChanged?.Invoke();
 
             CurrentZone++;
@@ -109,6 +114,23 @@ namespace WheelOfFortune.Core
 
             State = SessionState.Finished;
             SessionFinished?.Invoke();
+        }
+
+        public void Revive(int cost)
+        {
+            if (State != SessionState.BombExploded)
+            {
+                throw new InvalidOperationException($"Cannot revive while state is {State}.");
+            }
+
+            if (PersistentGold < cost)
+            {
+                throw new InvalidOperationException("Not enough gold to revive.");
+            }
+
+            PersistentGold -= cost;
+            State = SessionState.Idle;
+            Revived?.Invoke();
         }
 
         public void Restart()
