@@ -23,6 +23,14 @@ namespace WheelOfFortune.UI
         }
 #endif
 
+        public void ResetRotation()
+        {
+            DOTween.Kill(_rotator);
+            _accumulatedAngle = 0f;
+            IsSpinning = false;
+            _rotator.localRotation = Quaternion.identity;
+        }
+
         public void SpinTo(int sliceIndex, Action onComplete)
         {
             // Landing angle is sliceIndex * DegreesPerSlice (mod 360): slice 0 sits under the

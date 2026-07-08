@@ -108,6 +108,7 @@ namespace WheelOfFortune.Game
         {
             _bombPopupView.Hide();
             _finishPopupView.Hide();
+            _wheelSpinAnimator.ResetRotation();
             _session.Restart();
         }
 
