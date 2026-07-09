@@ -14,8 +14,11 @@ namespace WheelOfFortune.UI
         [SerializeField] private GameObject _itemPrefab;
         [SerializeField] private Sprite _normalSprite;
         [SerializeField] private Sprite _safeSprite;
-        [SerializeField] private Sprite _superSprite;
         [SerializeField] private Sprite _currentSprite;
+
+        // No dedicated gold zone sprite ships with the assets, so super zones reuse the neutral
+        // panel (the sprite safe zones use) tinted gold via Image.color. Tunable in the Inspector.
+        [SerializeField] private Color _superColor = new Color(1f, 0.84f, 0.4f, 1f);
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -41,22 +44,28 @@ namespace WheelOfFortune.UI
                 var bg = bgTransform.GetComponent<Image>();
                 var text = bgTransform.Find("ui_text_zone_value").GetComponent<TMP_Text>();
 
-                bg.sprite = zone == currentZone ? _currentSprite : SpriteForZoneType(zone, safeInterval, superInterval);
+                ApplyZoneStyle(bg, zone, currentZone, safeInterval, superInterval);
                 text.text = zone.ToString();
             }
         }
 
-        private Sprite SpriteForZoneType(int zone, int safeInterval, int superInterval)
+        private void ApplyZoneStyle(Image bg, int zone, int currentZone, int safeInterval, int superInterval)
         {
-            switch (ZoneRules.GetZoneType(zone, safeInterval, superInterval))
+            var type = ZoneRules.GetZoneType(zone, safeInterval, superInterval);
+
+            // Super wins over the current-zone highlight: a super zone always reads gold, even when
+            // it's the zone you're on (otherwise zone 30 would show the cyan "current" sprite).
+            if (type == ZoneType.Super)
             {
-                case ZoneType.Super:
-                    return _superSprite;
-                case ZoneType.Safe:
-                    return _safeSprite;
-                default:
-                    return _normalSprite;
+                bg.sprite = _safeSprite;
+                bg.color = _superColor;
+                return;
             }
+
+            bg.color = Color.white;
+            bg.sprite = zone == currentZone
+                ? _currentSprite
+                : (type == ZoneType.Safe ? _safeSprite : _normalSprite);
         }
     }
 }
