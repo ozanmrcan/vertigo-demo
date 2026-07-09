@@ -9,8 +9,6 @@ namespace WheelOfFortune.Game
 {
     public class GameManager : MonoBehaviour
     {
-        private const string GoldPrefsKey = "PersistentGold";
-
         [SerializeField] private GameConfigSo _config;
         [SerializeField] private WheelView _wheelView;
         [SerializeField] private WheelSpinAnimator _wheelSpinAnimator;
@@ -39,8 +37,7 @@ namespace WheelOfFortune.Game
 
         private void Awake()
         {
-            var startingGold = PlayerPrefs.GetInt(GoldPrefsKey, 0);
-            _session = new GameSession(_config, new System.Random(), startingGold);
+            _session = new GameSession(_config, new System.Random());
 
             _bombPopupView.Hide();
             _finishPopupView.Hide();
@@ -125,7 +122,6 @@ namespace WheelOfFortune.Game
         private void HandleRewardsChanged()
         {
             RefreshRewards();
-            PersistGold();
         }
 
         private void HandleZoneChanged()
@@ -138,7 +134,7 @@ namespace WheelOfFortune.Game
         {
             UpdateButtonInteractable();
             var cost = _config.ReviveCost;
-            _bombPopupView.Show(cost, _session.PersistentGold >= cost);
+            _bombPopupView.Show(cost, _session.CurrentGold >= cost);
         }
 
         private void HandleReviveRequested()
@@ -150,7 +146,6 @@ namespace WheelOfFortune.Game
         private void HandleRevived()
         {
             UpdateButtonInteractable();
-            PersistGold();
         }
 
         private void HandleSessionFinished()
@@ -184,12 +179,6 @@ namespace WheelOfFortune.Game
             var idle = _session.State == SessionState.Idle;
             _spinButton.interactable = idle;
             _leaveButton.interactable = idle && _session.CurrentZoneType != ZoneType.Normal;
-        }
-
-        private void PersistGold()
-        {
-            PlayerPrefs.SetInt(GoldPrefsKey, _session.PersistentGold);
-            PlayerPrefs.Save();
         }
     }
 }

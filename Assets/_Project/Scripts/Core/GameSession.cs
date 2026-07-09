@@ -14,16 +14,17 @@ namespace WheelOfFortune.Core
 
     public class GameSession
     {
+        private const double FloorEpsilon = 1e-4;
+
         private readonly GameConfigSo _config;
         private readonly Random _random;
         private readonly RewardInventory _inventory = new RewardInventory();
         private SpinResult? _pendingResult;
 
-        public GameSession(GameConfigSo config, Random random, int startingGold = 0)
+        public GameSession(GameConfigSo config, Random random)
         {
             _config = config;
             _random = random;
-            PersistentGold = startingGold;
             CurrentZone = 1;
             State = SessionState.Idle;
             CurrentZoneType = ZoneRules.GetZoneType(CurrentZone, _config.SafeZoneInterval, _config.SuperZoneInterval);
@@ -34,8 +35,22 @@ namespace WheelOfFortune.Core
         public int CurrentZone { get; private set; }
         public ZoneType CurrentZoneType { get; private set; }
         public WheelConfigSo CurrentWheel { get; private set; }
-        public int PersistentGold { get; private set; }
         public IReadOnlyDictionary<RewardDefinitionSo, int> Rewards => _inventory.Amounts;
+
+        // Gold collected this run; also the currency that funds a revive. No persistence between games.
+        public int CurrentGold
+        {
+            get
+            {
+                if (_config.GoldReward == null)
+                {
+                    return 0;
+                }
+
+                _inventory.Amounts.TryGetValue(_config.GoldReward, out var gold);
+                return gold;
+            }
+        }
 
         public event Action<SpinResult> SpinResolved;
         public event Action RewardsChanged;
@@ -59,7 +74,16 @@ namespace WheelOfFortune.Core
             if (!slice.IsBomb)
             {
                 var multiplier = _config.RewardMultiplierByZone.Evaluate(CurrentZone);
-                amount = Math.Max(1, (int)Math.Round(slice.BaseAmount * multiplier));
+                var scaled = slice.BaseAmount * multiplier;
+
+                // Currency (cash/gold) scales smoothly and rounds. Item counts only tick up once a
+                // whole unit is reached, so a 1.76x multiplier leaves a base-1 item at 1, not 2.
+                // Epsilon guards against a mathematically-whole product landing at n.9999 in float.
+                var rewarded = slice.Reward.IsCurrency
+                    ? (int)Math.Round(scaled)
+                    : (int)Math.Floor(scaled + FloorEpsilon);
+
+                amount = Math.Max(1, rewarded);
             }
 
             var result = new SpinResult(sliceIndex, slice, amount);
@@ -87,10 +111,6 @@ namespace WheelOfFortune.Core
             }
 
             _inventory.Add(result.Slice.Reward, result.ScaledAmount);
-            if (_config.GoldReward != null && result.Slice.Reward == _config.GoldReward)
-            {
-                PersistentGold += result.ScaledAmount;
-            }
             RewardsChanged?.Invoke();
 
             CurrentZone++;
@@ -123,13 +143,14 @@ namespace WheelOfFortune.Core
                 throw new InvalidOperationException($"Cannot revive while state is {State}.");
             }
 
-            if (PersistentGold < cost)
+            if (CurrentGold < cost)
             {
                 throw new InvalidOperationException("Not enough gold to revive.");
             }
 
-            PersistentGold -= cost;
+            _inventory.Remove(_config.GoldReward, cost);
             State = SessionState.Idle;
+            RewardsChanged?.Invoke();
             Revived?.Invoke();
         }
 

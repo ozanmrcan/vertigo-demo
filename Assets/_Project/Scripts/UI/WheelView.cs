@@ -82,15 +82,19 @@ namespace WheelOfFortune.UI
             _multiplierText.text = $"x{rewardMultiplier:0.00}";
             _multiplierText.color = MultiplierColorForTier(config.Tier);
 
-            var isGolden = config.Tier == WheelTier.Golden;
-            _shineImage.gameObject.SetActive(isGolden);
-            if (isGolden && !_shineSpinning)
+            var showShine = config.Tier == WheelTier.Silver || config.Tier == WheelTier.Golden;
+            _shineImage.gameObject.SetActive(showShine);
+            if (showShine)
             {
-                _shineSpinning = true;
-                _shineImage.rectTransform
-                    .DORotate(new Vector3(0f, 0f, 360f), 10f, RotateMode.FastBeyond360)
-                    .SetEase(Ease.Linear)
-                    .SetLoops(-1, LoopType.Restart);
+                _shineImage.color = ShineColorForTier(config.Tier);
+                if (!_shineSpinning)
+                {
+                    _shineSpinning = true;
+                    _shineImage.rectTransform
+                        .DORotate(new Vector3(0f, 0f, 360f), 10f, RotateMode.FastBeyond360)
+                        .SetEase(Ease.Linear)
+                        .SetLoops(-1, LoopType.Restart);
+                }
             }
 
             var sliceData = config.Slices;
@@ -128,6 +132,15 @@ namespace WheelOfFortune.UI
                 default:
                     return new Color(1f, 0.75f, 0.45f);
             }
+        }
+
+        private static Color ShineColorForTier(WheelTier tier)
+        {
+            // Silver keeps the sprite's natural white/silver look; golden tints it warm gold.
+            // Full alpha so the halo actually reads against the dark background instead of washing out.
+            return tier == WheelTier.Golden
+                ? new Color(1f, 0.85f, 0.4f, 1f)
+                : Color.white;
         }
 
         private static Color MultiplierColorForTier(WheelTier tier)

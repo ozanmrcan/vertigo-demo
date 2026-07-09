@@ -15,6 +15,24 @@ namespace WheelOfFortune.Core
             _amounts[reward] = current + amount;
         }
 
+        public void Remove(RewardDefinitionSo reward, int amount)
+        {
+            if (!_amounts.TryGetValue(reward, out var current))
+            {
+                return;
+            }
+
+            var remaining = current - amount;
+            if (remaining > 0)
+            {
+                _amounts[reward] = remaining;
+            }
+            else
+            {
+                _amounts.Remove(reward);
+            }
+        }
+
         public void Clear()
         {
             _amounts.Clear();

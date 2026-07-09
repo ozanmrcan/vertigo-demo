@@ -10,9 +10,11 @@ namespace WheelOfFortune.Tests
 {
     public class GameSessionTests
     {
-        private static RewardDefinitionSo CreateReward()
+        private static RewardDefinitionSo CreateReward(bool isCurrency = false)
         {
-            return ScriptableObject.CreateInstance<RewardDefinitionSo>();
+            var reward = ScriptableObject.CreateInstance<RewardDefinitionSo>();
+            reward.InitializeForTests(isCurrency);
+            return reward;
         }
 
         private static WheelSliceData CreateSlice(RewardDefinitionSo reward, int baseAmount, bool isBomb = false)
@@ -196,6 +198,42 @@ namespace WheelOfFortune.Tests
         }
 
         [Test]
+        public void Spin_CurrencyReward_ScalesSmoothlyWithRounding()
+        {
+            var cash = CreateReward(isCurrency: true);
+            var wheel = CreateWheel(CreateSlice(cash, 100));
+            var config = CreateConfig(safeInterval: 5, superInterval: 30, wheel, rewardMultiplier: 1.76f);
+            var session = new GameSession(config, new Random(1));
+
+            Assert.AreEqual(176, session.Spin().ScaledAmount);
+        }
+
+        [Test]
+        public void Spin_ItemReward_StepsUpOnlyWhenAWholeUnitIsReached()
+        {
+            var item = CreateReward(isCurrency: false);
+            var wheel = CreateWheel(CreateSlice(item, 1));
+
+            var belowWhole = CreateConfig(safeInterval: 5, superInterval: 30, wheel, rewardMultiplier: 1.76f);
+            Assert.AreEqual(1, new GameSession(belowWhole, new Random(1)).Spin().ScaledAmount);
+
+            var atWhole = CreateConfig(safeInterval: 5, superInterval: 30, wheel, rewardMultiplier: 2f);
+            Assert.AreEqual(2, new GameSession(atWhole, new Random(1)).Spin().ScaledAmount);
+        }
+
+        [Test]
+        public void Spin_ItemReward_HigherBaseStillGrowsBetweenWholeMultipliers()
+        {
+            var item = CreateReward(isCurrency: false);
+            var wheel = CreateWheel(CreateSlice(item, 5));
+            var config = CreateConfig(safeInterval: 5, superInterval: 30, wheel, rewardMultiplier: 1.76f);
+            var session = new GameSession(config, new Random(1));
+
+            // floor(5 * 1.76) = floor(8.8) = 8 — a bigger base keeps improving each zone.
+            Assert.AreEqual(8, session.Spin().ScaledAmount);
+        }
+
+        [Test]
         public void Spin_RewardAmount_NeverBelowOne()
         {
             var reward = CreateReward();
@@ -239,7 +277,7 @@ namespace WheelOfFortune.Tests
         }
 
         [Test]
-        public void CompleteSpin_OnGoldReward_AccumulatesPersistentGold_SurvivingABomb()
+        public void CompleteSpin_OnGoldReward_AccumulatesGold_SurvivingABomb()
         {
             var gold = CreateReward();
             var wheel = CreateWheel(CreateSlice(gold, 100), CreateSlice(null, 0, isBomb: true));
@@ -249,8 +287,8 @@ namespace WheelOfFortune.Tests
             session.Spin();
             session.CompleteSpin();
 
-            Assert.AreEqual(100, session.PersistentGold);
-            var goldBeforeBomb = session.PersistentGold;
+            Assert.AreEqual(100, session.CurrentGold);
+            var goldBeforeBomb = session.CurrentGold;
 
             while (session.State != SessionState.BombExploded)
             {
@@ -258,21 +296,22 @@ namespace WheelOfFortune.Tests
                 session.CompleteSpin();
                 if (session.State == SessionState.Idle)
                 {
-                    goldBeforeBomb = session.PersistentGold;
+                    goldBeforeBomb = session.CurrentGold;
                 }
             }
 
+            // Hitting the bomb does not clear the run yet — gold is still available to fund a revive.
             Assert.AreEqual(SessionState.BombExploded, session.State);
-            Assert.AreEqual(goldBeforeBomb, session.PersistentGold);
+            Assert.AreEqual(goldBeforeBomb, session.CurrentGold);
         }
 
         [Test]
         public void Revive_WhenAffordable_RestoresIdle_KeepsRewardsAndZone_DeductsGold()
         {
-            var reward = CreateReward();
-            var wheel = CreateWheel(CreateSlice(reward, 100), CreateSlice(null, 0, isBomb: true));
-            var config = CreateConfig(safeInterval: 1000, superInterval: 10000, wheel, reviveCost: 25);
-            var session = new GameSession(config, new Random(1), startingGold: 100);
+            var gold = CreateReward();
+            var wheel = CreateWheel(CreateSlice(gold, 100), CreateSlice(null, 0, isBomb: true));
+            var config = CreateConfig(safeInterval: 1000, superInterval: 10000, wheel, goldReward: gold, reviveCost: 25);
+            var session = new GameSession(config, new Random(1));
 
             while (session.State != SessionState.BombExploded)
             {
@@ -281,15 +320,15 @@ namespace WheelOfFortune.Tests
             }
 
             var zoneBeforeRevive = session.CurrentZone;
-            var rewardsBeforeRevive = new Dictionary<RewardDefinitionSo, int>(session.Rewards);
-            Assert.Greater(rewardsBeforeRevive.Count, 0);
+            var goldBeforeRevive = session.CurrentGold;
+            Assert.GreaterOrEqual(goldBeforeRevive, 25);
 
             session.Revive(25);
 
             Assert.AreEqual(SessionState.Idle, session.State);
             Assert.AreEqual(zoneBeforeRevive, session.CurrentZone);
-            Assert.AreEqual(75, session.PersistentGold);
-            CollectionAssert.AreEquivalent(rewardsBeforeRevive, session.Rewards);
+            Assert.AreEqual(goldBeforeRevive - 25, session.CurrentGold);
+            Assert.Greater(session.Rewards.Count, 0);
         }
 
         [Test]
@@ -297,7 +336,7 @@ namespace WheelOfFortune.Tests
         {
             var wheel = CreateWheel(CreateSlice(null, 0, isBomb: true));
             var config = CreateConfig(safeInterval: 1000, superInterval: 10000, wheel, reviveCost: 25);
-            var session = new GameSession(config, new Random(1), startingGold: 10);
+            var session = new GameSession(config, new Random(1));
 
             session.Spin();
             session.CompleteSpin();
@@ -311,7 +350,7 @@ namespace WheelOfFortune.Tests
         {
             var wheel = CreateWheel(CreateSlice(CreateReward(), 100));
             var config = CreateConfig(safeInterval: 5, superInterval: 30, wheel);
-            var session = new GameSession(config, new Random(1), startingGold: 100);
+            var session = new GameSession(config, new Random(1));
 
             Assert.Throws<InvalidOperationException>(() => session.Revive(25));
         }
